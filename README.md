@@ -197,15 +197,6 @@ where `YYYY` = year, `DDD` = day of year.
 
 ---
 
-## 🧩 Future Extensions
-
-* 🛰️ TEC anomaly detection (solar flare correlation)
-* 🧮 Regional TEC interpolation for ionospheric delay modeling
-* 🗺️ Integration with GNSS datasets
-* 🔬 Export as NetCDF or GeoTIFF
-
----
-
 ## 🧾 License
 
 MIT License © 2025 Anoosha Lamouchi
