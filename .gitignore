@@ -1,0 +1,103 @@
+# =========================================
+# 🔧 Python Build and Bytecode
+# =========================================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# =========================================
+# 🧪 Virtual Environments
+# =========================================
+.env
+.venv/
+venv/
+ENV/
+env/
+.ipynb_checkpoints/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+build/
+dist/
+
+# =========================================
+# 🧰 IDE / Editor Configs
+# =========================================
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# =========================================
+# 🧾 Logs, Cache, and Temporary Files
+# =========================================
+*.log
+*.tmp
+*.bak
+*.swp
+*.DS_Store
+Thumbs.db
+.cache/
+pytest_cache/
+__pypackages__/
+.mypy_cache/
+.pytest_cache/
+coverage/
+htmlcov/
+
+# =========================================
+# 🌐 Network / Downloaded Data
+# =========================================
+# IONEX, TEC, compressed, and other raw data files
+ionexer/raw/
+*.ionex
+*.IONEX
+*.Z
+*.gz
+*.zip
+*.tar
+*.tar.gz
+*.dat
+*.txt~
+*.nc
+*.hdf
+*.h5
+
+# =========================================
+# 📦 Jupyter / Analysis Artifacts
+# =========================================
+*.ipynb_checkpoints
+*.npy
+*.npz
+*.mat
+*.csv
+*.tsv
+
+# =========================================
+# 📁 OS Metadata (Windows / macOS)
+# =========================================
+ehthumbs.db
+Desktop.ini
+.DS_Store
+.Trashes
+._*
+
+# =========================================
+# 🧮 Project-specific cache and intermediates
+# =========================================
+# If you generate intermediate processed files (like parsed TEC grids)
+# keep them out of Git but document them in README
+ionexer/output/
+ionexer/temp/
+tmp/
+results/
+plots/
+figures/
+data/
+
+# =========================================
+# ✅ Keep certain things tracked
+# =========================================
+# You can re-include key placeholder files if needed
+!ionexer/raw/.gitkeep
+!ionexer/output/.gitkeep
