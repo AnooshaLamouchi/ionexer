@@ -15,6 +15,42 @@ from .file_manager import FileManager
 from .anomaly import AnomalyDetector
 from .config import DEFAULT_THRESHOLD, DEFAULT_WINDOW_DAYS
 
+IRAN_BBOX = (24.0, 40.0, 44.0, 64.0)
+
+def crop_to_bbox(
+    z_map: np.ndarray,
+    latitudes: np.ndarray,
+    longitudes: np.ndarray,
+    bbox: tuple[float, float, float, float],
+):
+    """
+    Crop a global z_map(lat, lon) to a bounding box.
+
+    bbox = (lat_min, lat_max, lon_min, lon_max)
+
+    Returns:
+        z_sub, lats_sub, lons_sub
+    """
+    lat_min, lat_max, lon_min, lon_max = bbox
+
+    # Handle lon range 0–360 vs -180–180
+    lons_wrapped = longitudes.copy()
+    if np.max(lons_wrapped) > 180.0:  # probably 0–360
+        lons_wrapped = (lons_wrapped + 180.0) % 360.0 - 180.0
+
+    lat_mask = (latitudes >= lat_min) & (latitudes <= lat_max)
+    lon_mask = (lons_wrapped >= lon_min) & (lons_wrapped <= lon_max)
+
+    # If something went wrong, don't crash – just return original arrays
+    if not lat_mask.any() or not lon_mask.any():
+        return z_map, latitudes, lons_wrapped
+
+    z_sub = z_map[np.ix_(lat_mask, lon_mask)]
+    lats_sub = latitudes[lat_mask]
+    lons_sub = lons_wrapped[lon_mask]
+
+    return z_sub, lats_sub, lons_sub
+
 
 class Parser:
     def __init__(self, path: Path):
@@ -253,7 +289,7 @@ class Parser:
         def update_map(i: int):
             if not frames:
                 return
-            i = max(0, min(i, len(frames)-1))
+            i = max(0, min(i, len(frames) - 1))
             current_idx["i"] = i
             fr = frames[i]
             z = fr["z"]
@@ -261,26 +297,66 @@ class Parser:
             lons = fr["lons"]
             epoch = fr["epoch"]
 
+            # ---- CROP TO IRAN ----
+            z_ir, lats_ir, lons_ir = crop_to_bbox(
+                z_map=z,
+                latitudes=lats,
+                longitudes=lons,
+                bbox=IRAN_BBOX,
+            )
+
+            # Clear and decorate map
             ax_map.clear()
             _decorate_world(ax_map)
 
-            lon_grid, lat_grid = np.meshgrid(lons, lats)
+            # Zoom to Iran
+            lat_min, lat_max, lon_min, lon_max = IRAN_BBOX
+            ax_map.set_extent([lon_min, lon_max, lat_min, lat_max],
+                              crs=ccrs.PlateCarree())
+
+            # Meshgrid for cropped region
+            lon_grid, lat_grid = np.meshgrid(lons_ir, lats_ir)
+
+            # Plot Iran-only anomalies
             pcm = ax_map.pcolormesh(
-                lon_grid, lat_grid, np.clip(z, -5, 5),
-                cmap="RdBu_r", vmin=-5, vmax=5, shading="auto", transform=ccrs.PlateCarree()
+                lon_grid,
+                lat_grid,
+                np.clip(z_ir, -5, 5),
+                cmap="RdBu_r",
+                vmin=-5,
+                vmax=5,
+                shading="auto",
+                transform=ccrs.PlateCarree(),
             )
             ax_map.contour(
-                lon_grid, lat_grid, (np.abs(z) > threshold).astype(float),
-                levels=[0.5], colors="black", linewidths=0.7, transform=ccrs.PlateCarree()
+                lon_grid,
+                lat_grid,
+                (np.abs(z_ir) > threshold).astype(float),
+                levels=[0.5],
+                colors="black",
+                linewidths=0.7,
+                transform=ccrs.PlateCarree(),
             )
 
+            # Colorbar (unchanged)
             if cbar["obj"] is None:
-                cbar["obj"] = fig.colorbar(pcm, ax=ax_map, orientation="vertical", pad=0.02, label="Robust z (clipped ±5)")
+                cbar["obj"] = fig.colorbar(
+                    pcm,
+                    ax=ax_map,
+                    orientation="vertical",
+                    pad=0.02,
+                    label="Robust z (clipped ±5)",
+                )
             else:
                 cbar["obj"].update_normal(pcm)
 
-            ax_map.set_title(f"TEC Anomalies (|z| ≥ {threshold:.1f}) — {epoch.strftime('%a, %d %b %Y %H:%M UTC')}")
+            # Title: EXACTLY like worldmap (date+time from epoch)
+            ax_map.set_title(
+                f"TEC Anomalies (|z| ≥ {threshold:.1f}) — "
+                f"{epoch.strftime('%a, %d %b %Y %H:%M UTC')}"
+            )
             fig.canvas.draw_idle()
+
 
         def build_frames(start_d: date, end_d: date):
             nonlocal s_idx
@@ -351,3 +427,69 @@ class Parser:
         plt.colorbar(label="Robust z (clipped ±5)")
         plt.xlabel("Longitude"); plt.ylabel("Latitude")
         plt.tight_layout(); plt.show()
+    
+    @staticmethod
+    def plot_anomaly_iran(
+        z_map: np.ndarray,
+        latitudes: np.ndarray,
+        longitudes: np.ndarray,
+        threshold: float = DEFAULT_THRESHOLD,
+    ):
+        """
+        Same as plot_anomaly, but cropped and zoomed to Iran only.
+        """
+        # Crop global grid to Iran bbox
+        z_ir, lats_ir, lons_ir = crop_to_bbox(
+            z_map=z_map,
+            latitudes=latitudes,
+            longitudes=longitudes,
+            bbox=IRAN_BBOX,
+        )
+
+        # Prepare lon/lat mesh
+        lon_grid, lat_grid = np.meshgrid(lons_ir, lats_ir)
+
+        # Create figure + Cartopy geo-axes
+        fig = plt.figure(figsize=(10, 6))
+        ax = plt.axes(projection=ccrs.PlateCarree())
+
+        # Zoom to Iran area
+        lat_min, lat_max, lon_min, lon_max = IRAN_BBOX
+        ax.set_extent([lon_min, lon_max, lat_min, lat_max], crs=ccrs.PlateCarree())
+
+        # Add basic map features
+        ax.add_feature(cfeature.COASTLINE, linewidth=0.5)
+        ax.add_feature(cfeature.BORDERS, linewidth=0.5)
+        ax.add_feature(cfeature.LAND, facecolor="0.9")
+        ax.gridlines(draw_labels=True, dms=True, x_inline=False, y_inline=False)
+
+        # Plot anomaly map (clipped to ±5 for readability)
+        pcm = ax.pcolormesh(
+            lon_grid,
+            lat_grid,
+            np.clip(z_ir, -5, 5),
+            cmap="RdBu_r",
+            vmin=-5,
+            vmax=5,
+            shading="auto",
+            transform=ccrs.PlateCarree(),
+        )
+
+        # Black contour where |z| exceeds threshold (anomalies)
+        ax.contour(
+            lon_grid,
+            lat_grid,
+            (np.abs(z_ir) > threshold).astype(float),
+            levels=[0.5],
+            colors="black",
+            linewidths=0.7,
+            transform=ccrs.PlateCarree(),
+        )
+
+        # Colorbar + labels
+        cbar = fig.colorbar(pcm, ax=ax, orientation="vertical", pad=0.02)
+        cbar.set_label("Robust z (clipped ±5)")
+
+        ax.set_title(f"TEC Anomaly Map over Iran (|z| ≥ {threshold})")
+        plt.tight_layout()
+        plt.show()

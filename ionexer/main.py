@@ -65,7 +65,7 @@ def main():
                 z_map, anomalies = detector.detect_zscore(target_date, threshold=args["threshold"])
 
         if z_map is not None:
-            Parser.plot_anomaly(z_map, lats, lons, threshold=args["threshold"])
+            Parser.plot_anomaly_iran(z_map, lats, lons, threshold=args["threshold"])
         else:
             print("⚠️  Could not compute anomalies.")
 
