@@ -25,7 +25,8 @@ class FileManager:
         yy = str(year)[2:]
 
         return [
-            f"c2pg{doy}0.{yy}i.Z",                           
+            f"c1pg{doy}0.{yy}i.Z",
+            f"c2pg{doy}0.{yy}i.Z",
             f"IGS0OPSFIN_{year}{doy}0000_01D_02H_GIM.INX.gz",  
             f"IGS0OPSRAP_{year}{doy}0000_01D_02H_GIM.INX.gz"
         ]
@@ -33,8 +34,8 @@ class FileManager:
     def get_file_for_date(self, dt: date) -> Optional[Path]:
         possible_files = self._expected_filenames(dt)
 
-        for fname in possible_files:
-            path = self.base_dir / fname
+        for fileName in possible_files:
+            path = self.base_dir / fileName
             if path.exists():
                 logging.info(f"Found local file for {dt}: {path.name}")
                 return path

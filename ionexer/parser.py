@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 from matplotlib.widgets import TextBox, Button, Slider
-import matplotlib.animation as animation
 from typing import List, Tuple, Optional
 
 from .file_manager import FileManager

@@ -10,8 +10,9 @@ import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
-from .file_manager import FileManager
-from .parser import Parser
+from ionexer.file_manager import FileManager
+from ionexer.parser import Parser
+from ionexer.space_weather import OmniSpaceWeather
 
 
 # Find nearest grid cell over Iran for a chosen reference point
@@ -158,20 +159,24 @@ def train_test_split_by_date(
 # Train a Random Forest regression model
 
 def train_random_forest_model(df_train: pd.DataFrame):
-    """
-    Train a RandomForestRegressor on the engineered features.
-    """
-    feature_cols = ["day_of_year", "hour", "sin_hour", "cos_hour", "sin_doy", "cos_doy"]
-    X_train = df_train[feature_cols].values
-    y_train = df_train["tec"].values
+    base_features = ["day_of_year", "hour", "sin_hour", "cos_hour", "sin_doy", "cos_doy"]
+
+    # Add any OMNI lag features automatically:
+    omni_features = [c for c in df_train.columns if c.endswith("h") and "_lag" in c]
+
+    feature_cols = base_features + omni_features
+
+    X = df_train[feature_cols].values
+    y = df_train["tec"].values
 
     model = RandomForestRegressor(
-        n_estimators=200,
-        max_depth=None,
+        n_estimators=400,
         random_state=42,
         n_jobs=-1,
+        max_depth=None,
+        min_samples_leaf=2,
     )
-    model.fit(X_train, y_train)
+    model.fit(X, y)
     return model, feature_cols
 
 
@@ -214,7 +219,7 @@ def evaluate_model(
 
 
 
-#  Plot predicted vs. true TEC 
+#  Plot predicted vs. true TEC
 
 def plot_day_prediction(
     model,
@@ -279,7 +284,7 @@ def run_ml_for_month(
     """
     start = date(year, month, 1)
 
-  
+
     if month == 12:
         end = date(year, 12, 31)
     else:
@@ -288,6 +293,16 @@ def run_ml_for_month(
     print(f"[INFO] Building TEC time series for {start} to {end} ...")
     df = build_tec_timeseries_for_point(start, end)
     df = add_time_features(df)
+
+    sw = OmniSpaceWeather()
+    df = sw.add_to_tec_df(
+        df,
+        datetime_col="datetime",
+        join_method="ffill",
+        lags_hours=(1, 3, 6),
+        include_current=False,
+        drop_rows_with_any_nan_in_sw=False
+    )
 
     split_date = date(year, month, split_day)
     df_train, df_test = train_test_split_by_date(df, split_date)

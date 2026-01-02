@@ -1,11 +1,10 @@
 import sys
 from datetime import date, datetime
 
-from .file_manager import FileManager
-from .parser import Parser
-from .anomaly import AnomalyDetector
-from .config import DEFAULT_WINDOW_DAYS, DEFAULT_THRESHOLD
-
+from ionexer.anomaly import AnomalyDetector
+from ionexer.config import DEFAULT_WINDOW_DAYS, DEFAULT_THRESHOLD
+from ionexer.file_manager import FileManager
+from ionexer.parser import Parser
 
 def _parse_args(argv):
     args = {
@@ -37,7 +36,7 @@ def _parse_args(argv):
 def main():
     args = _parse_args(sys.argv)
     try:
-        target_date = args["date"] or date.today()
+        target_date = args["date"] or date(2025, 12, 29)
 
         if args["viewer"]:
             Parser.create_interactive_viewer(
