@@ -139,7 +139,7 @@ def build_year_dataset_iran(
         raise RuntimeError("No rows collected for dataset.")
     df = pd.concat(rows, ignore_index=True)
     df = df.sort_values("datetime").reset_index(drop=True)
-    df = pd.DataFrame(rows)
+    # df = pd.DataFrame(rows)
 
     if include_space_weather and sw is not None and len(df) > 0:
         df = sw.add_to_tec_df(
@@ -222,6 +222,38 @@ def predict_map_for_time(
         if tec_prev_map is None:
             raise ValueError("tec_prev_map is required because model uses tec_prev.")
         data["tec_prev"] = tec_prev_map.reshape(-1)
+
+    sw_lag_cols = [c for c in feature_cols if "_lag" in c and c.endswith("h")]
+    if sw_lag_cols:
+        sw = OmniSpaceWeather()
+
+        ts_utc = pd.to_datetime(ts, utc=True)
+        # small window is enough; just needs to cover plot time
+        start = (ts_utc - pd.Timedelta(hours=24)).date()
+        end   = ts_utc.date()
+
+        sw_hourly = sw.load_hourly(start, end)
+        sw_hourly = sw_hourly.copy()
+        sw_hourly["Epoch"] = pd.to_datetime(sw_hourly["Epoch"], utc=True)
+        sw_hourly = (
+            sw_hourly.sort_values("Epoch")
+            .drop_duplicates(subset="Epoch", keep="last")
+            .set_index("Epoch")
+        )
+
+        # get OMNI values at the plot time (causal fill)
+        row = sw_hourly.reindex([ts_utc], method="ffill").iloc[0]
+
+        # IMPORTANT:
+        # Your current training pipeline's "lag" construction is row-shifted on a grid dataset,
+        # so these lag columns behave almost like "current" values for most rows.
+        # To stay consistent (and avoid retraining right now), fill lag cols using the current value.
+        for col in sw_lag_cols:
+            base = col.split("_lag")[0]  # e.g. "kp" from "kp_lag1h"
+            v = row.get(base, np.nan)
+            if pd.isna(v):
+                v = 0.0
+            data[col] = np.full(N, float(v))
 
     X = pd.DataFrame(data)[feature_cols].values
     pred = model.predict(X).reshape(lat_grid.shape)

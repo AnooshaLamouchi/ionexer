@@ -172,7 +172,10 @@ class OmniSpaceWeather:
                 data = None
 
         if data is None:
-            _, xds = cdas.get_data(self.cfg.doi, var_names, ti, dataRepresentation=dr.XARRAY)
+            DataRep = getattr(dr, "DataRepresentation", None)
+            rep = DataRep.XARRAY if DataRep is not None else dr.XARRAY  # supports old+new cdasws
+            _, xds = cdas.get_data(self.cfg.doi, var_names, ti, dataRepresentation=rep)
+
             # xarray.Dataset -> DataFrame
             df = xds.to_dataframe().reset_index()
             # Usually 'Epoch' is index; ensure it exists:
@@ -264,7 +267,19 @@ class OmniSpaceWeather:
           - "nearest": pick nearest hourly sample within tolerance
           - "ffill": forward fill (safe for causal pipelines)
         """
-        df = sw_hourly.copy().set_index("Epoch")
+        df = sw_hourly.copy()
+        df["Epoch"] = pd.to_datetime(df["Epoch"], utc=True)
+        df = df.sort_values("Epoch")
+
+        # Fix duplicates in OMNI timestamps (required for reindex with method=...)
+        if df["Epoch"].duplicated().any():
+        # Option 1 (safe default): keep the last sample per timestamp
+            df = df.drop_duplicates(subset="Epoch", keep="last")
+
+        # Option 2 (if duplicates represent multiple samples collapsed to same hour):
+        # df = df.groupby("Epoch", as_index=False).mean(numeric_only=True)
+
+        df = df.set_index("Epoch")
 
         # For causal safety, ffill is better; nearest is fine if you are not forecasting.
         if method == "ffill":
